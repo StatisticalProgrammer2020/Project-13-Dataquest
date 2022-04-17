@@ -1,0 +1,254 @@
+---
+title: "Winning Jeopardy"
+author: "Abe Ceasar Perez"
+date: "April 14, 2022"
+output: html_document
+---
+
+### Practicing for Jeopardy
+
+This project aims the user to be guided with the right topics to study for the game Jeopardy. Specifically, we'll focus on looking into the various Jeopardy questions and answer to see which ones are more often to appear in certain categories.
+
+In addition to the objectives above, we'll be applying the following concepts in this project:
+
+- Probability Distributions
+- Hypothesis Testing
+- Chi-squared tests
+
+### Initial Findings
+
+Based on the findings of this project, we were able to determine that categories such as science, history, and shakespeare are more helpful to focus on given its prevalence in the questions. We were also able to identify keywords that would more often appear in this project.
+
+To know more about the process that was undertaken to arrive at the results, the following procedures were applied:
+
+### Loading the Dataset
+
+We'll start first by loading the Tidyverse project for our data cleaning and analysis followed by the actual dataset. This dataset contains almost 20,000 rows and 7 columns. The link to the dataset can be found here -  <https://data.world/dataquest/jeopardy>.
+
+```{r load_data, echo=TRUE, warning=FALSE}
+
+suppressPackageStartupMessages(library(tidyverse)) # loads the package without printing additional messages
+
+jeopardy <- read_csv("jeopardy.csv", show_col_types = FALSE) # reads the dataset and quiets the columns message
+dim(jeopardy) # prints the number of rows and columns
+head(jeopardy, 5) # prints the first five rows
+
+```
+
+Next we'll be inspecting the columns of this dataset. For better usability in the latter part of the analysis, we'll modify the column names to remove any white spaces and replace them with underscores.
+
+```{r modify_cols, echo=TRUE, warning=FALSE}
+
+# replace the spaces with underscores in the column names and change them to lowercase
+modified_cols <- str_to_lower(str_replace_all(colnames(jeopardy), " ", "_")) 
+
+colnames(jeopardy) <- modified_cols # reassign the new column names to the old column names
+colnames(jeopardy)
+
+```
+
+### Cleaning the Data
+
+Going back to the dataset, we can see that the value or the amount corresponding to the question is of character type since it contains both "None" and a "$" sign. Since our focus is to compare only the numerical values, we'll filter all none values and modify the remaining values into numerical types.
+
+```{r modify_value, echo=TRUE, warning=FALSE}
+
+# filters all None values and keeps only the numerical part of the value 
+modified_jeopardy <- jeopardy %>% filter(value != "None") %>% mutate(value = parse_number(value)) 
+head(modified_jeopardy$value, 10)
+
+```
+
+Since majority of our analysis also focuses on the textual part of the dataset, we'll also conduct our steps as well to clean and normalize the data. We'll first create a function to clean the text vectors and apply this to the question, answer, and the category part of Jeopardy.
+
+```{r modify_text, echo=TRUE, warning=FALSE}
+
+clean_string <- function(unformatted_string){ # function to clean a vector of strings
+
+  string_vector <- unlist(str_extract_all(unformatted_string, "([A-Za-z]+)")) # extracts all words in the text
+  no_punct_string <- str_replace_all(string_vector,"[:punct:]","") # removes all punctuation marks
+
+  # lowercases all words in the text except for the word Dont since it's different from dont.
+  capitalize_except_dont <- map(unlist(string_vector), function(y) ifelse(y != "Dont",str_to_lower(y),y)) 
+  
+  # combines the split string again using a whitespace
+  combined_string <- str_c(unlist(capitalize_except_dont), collapse = " ") 
+  combined_string
+  
+}
+
+# apply the clean_string function question, answer, and category
+modified_jeopardy$question <- unlist(map(modified_jeopardy$question, clean_string)) 
+modified_jeopardy$answer <- unlist(map(modified_jeopardy$answer, clean_string))
+modified_jeopardy$category <- unlist(map(modified_jeopardy$category, clean_string))
+
+# demo of the output for question vector
+head(modified_jeopardy$question, 5)
+
+```
+
+Lastly, we'll modify the air dates to convert it nto the appropriate type. We'll first separate the components of the date into year, month, and day and convert them into numerical type.
+
+```{r modify_dates, echo=TRUE, warning=FALSE}
+
+# separate the air date into new columns, namely year, month, day components and arrange the dataset by dates
+modified_jeopardy <- modified_jeopardy %>% arrange(air_date) %>% separate(air_date, c("year", "month", "day"))
+
+# convert the data type of the new columns into numeric type
+modified_jeopardy <- modified_jeopardy %>% mutate_at(c(2:4), as.numeric) 
+
+```
+
+### Checking the Prevalence of Categories
+
+Given the vastness of questions to be found in Jeopardy, it is of interest to determine whether some categories occur more frequently than others. 
+
+For this project we'll test whether the following categories have a higher prevalance in the dataset or not:
+
+- Science
+- History
+- Shakespeare
+
+Since we'll be conducting hypothesis testing, we'll first obtain the probability of a category to be drawn and its complement:
+
+```{r expected_probs, echo=TRUE, warning=FALSE}
+
+p_category_expected <-   1/3369 # probability of a category to be drawn over all of the unique categories
+p_not_category_expected <- 3368/3369 # probability of a category not to be drawn over all of the unique categories
+p_expected <- c(p_category_expected, p_not_category_expected) # stores all expected probabilities
+
+```
+
+For our first category (Science), we'll be storing the number of times the word "science" appeared in the category and the number of times the category did not appear. Afterwards we'll follow the hypothesis testing as listed below:
+
+- If p-value is less than 0.05, we reject the null hypothesis that science is more likely to appear than any category
+- Otherwise, Science is not likely to appear than any category
+
+Looking at the results below, we conclude that the Science category may be more likely to appear than any category.
+
+```{r science_prob, echo=TRUE, warning=FALSE}
+
+# counts the number of times science appeared and did not appear in the categories
+n_actual_science <- c(sum(modified_jeopardy$category == "science"), 3369 - sum(modified_jeopardy$category == "science")) 
+
+chisq.test(x = n_actual_science, p = p_expected) # conducts the test using the science counts and the probabilities from earlier; since p-value is lower than 0.05, we reject the null hypothesis
+
+```
+
+For our next category (History), we'll be storing the number of times the word "History" appeared in the category and the number of times the category did not appear. Afterwards we'll follow the hypothesis testing as listed below:
+
+- If p-value is less than 0.05, we reject the null hypothesis that History is more likely to appear than any category
+- Otherwise, History is not likely to appear than any category
+
+Looking at the results below, we conclude that the History category may be more likely to appear than any category.
+
+```{r history_prob, echo=TRUE, warning=FALSE}
+
+# counts the number of times history appeared and did not appear in the categories
+n_actual_history <- c(sum(modified_jeopardy$category == "history"), 3369 - sum(modified_jeopardy$category == "history")) 
+chisq.test(x = n_actual_history, p = p_expected) # conducts the test using the history counts and the probabilities from earlier; since p-value is lower than 0.05, we reject the null hypothesis
+
+```
+
+For our last category (Shakespeare), we'll be storing the number of times the word "Shakespeare" appeared in the category and the number of times the category did not appear. Afterwards we'll follow the hypothesis testing as listed below:
+
+- If p-value is less than 0.05, we reject the null hypothesis that Shakespeare is more likely to appear than any category
+- Otherwise, Shakespeare is not likely to appear than any category
+
+Looking at the results below, we conclude that the Shakespeare category may be more likely to appear than any category.
+
+```{r ss_prob, echo=TRUE, warning=FALSE}
+
+# counts the number of times Shakespeare appeared and did not appear in the categories
+n_actual_shakespeare <- c(sum(modified_jeopardy$category == "shakespeare"), 3369 - sum(modified_jeopardy$category == "shakespeare")) 
+
+chisq.test(x = n_actual_shakespeare, p = p_expected) # conducts the test using the Shakespeare counts and the probabilities from earlier; since p-value is lower than 0.05, we reject the null hypothesis
+
+```
+
+### Checking the Prevalence of Valued Questions
+
+For our next step, we'll be investigating whether some terms appear more often in higher value question than lower value questions. To do so, we'll first filter out all of the possible terms for each questions that contain at least 6 letters:
+
+```{r terms_used, echo=TRUE, warning=FALSE}
+
+# creates a vector of all the unique terms found in the questions
+unique_words <- unique(unlist(map(modified_jeopardy$question, function(x) str_split(x, " ")))) 
+
+# filters out unique terms that are at least 6 characters in length.
+final_unique_words <- unique_words[str_length(unique_words) >= 6] 
+
+map_terms <- function(x){ # function for including only terms with 6 characters
+  x <- unlist(str_split(x, " "))
+  terms <- x[x %in% final_unique_words] # filters out words from the previous list of words with six or more characters
+  terms
+}
+
+terms_used <- map(modified_jeopardy$question, map_terms) # filters out all six-lettered terms for each normalized question in the dataset
+
+head(terms_used)
+
+```
+
+We'll now be classifying the questions based on their current value - anything below $800 is a low-valued question while above that would be a high-valued question. Afterwards, we'll be creating a function to generate a dataframe of all the unique terms and their corresponding categories and compare their low-high value ratio towards the standard 2:3 ratio.
+
+```{r test_value_of_terms, echo=TRUE, warning=FALSE}
+
+# classify the questions based on their corresponding value
+modified_jeopardy$class <- ifelse(modified_jeopardy$value < 800, "Low value", "High value") 
+
+# function for applying the chi-square test to all possible terms for both low and high-valued questions
+count_terms <- function(vector_of_terms, category_of_questions){ 
+  
+  question_vector <- unlist(vector_of_terms) # expand the list of all terms
+  
+  # creates a vector to label the expanded term vector to its corresponding value based on the value of the question
+  category_vector <- unlist(map2(category_of_questions, unlist(map(vector_of_terms, function(term_count) length(term_count))), function(question_category,n_times) rep(question_category,n_times))) 
+  
+  combined <- tibble(question_vector, category_vector) # creates a table of questions and their categories
+  
+  # counts the occurrence of terms for both low and high-valued questions
+  word_counts <- combined %>% group_by(question_vector, category_vector) %>% summarize(count = n()) 
+  
+  # transposes the category rows into columns
+  word_counts <- pivot_wider(word_counts, names_from = "category_vector", values_from = "count") 
+  word_counts[is.na(word_counts)] <- 0 # changes null values to zero
+  
+  # performs the chi-square test to each question and returns the p-value based on the result of the test
+  word_counts <- word_counts %>% mutate(p_value = chisq.test(c(`Low value`, `High value`), p = c(0.4, 0.6))$p.value) 
+  word_counts
+  
+}
+
+```
+
+After counting and testing the prevalence of all unique terms, we've determined over 1,000 unique terms that have a signficantly different proportion of prevalence to the usual low-to-high valued questions:
+
+```{r significant_terms, echo=TRUE, warning=FALSE}
+
+test_result <- count_terms(terms_used, modified_jeopardy$class)
+
+# filter out all significant terms based on the p-value
+significant_terms <- subset(test_result, p_value < 0.05) %>% arrange(p_value) 
+significant_terms # displays the top 10 most significant terms
+
+```
+
+Since our goal is to win the Jeopardy game, we'll be filtering out the significant terms which have appeared more in high-valued questions compared to low-valued questions. Some of the most commonly frequent terms identified here are archive, target, meaning, monitor, and particles.
+
+```{r significant_hi_terms, echo=TRUE, warning=FALSE}
+
+# filters out the significant terms with a greater high value count than low value count and arranges by high value count
+more_in_hi_questions <- subset(significant_terms, `High value` > `Low value`) %>% arrange(-`High value`) 
+more_in_hi_questions
+
+```
+
+### Conclusion
+
+The aim of this project is to be able to guide the user in preparing for a Jeopardy game with the goal of winning the game. We used a sample of the Jeopardy dataset in order to quantify and decide whether or not some questions or categories are better to focus on in increasing the chances of winning.
+
+Based on the findings above, topics such as Science, History, and Shakespeare are great for the user to start on since a chunck of the questions are more frequent in these categories. On the other hand, terms such as archive, target, meaning, monitor, and particles are a great place to start in researching and preparing for the type of question that might arise in the contest.
+
+<br>
+<br>
