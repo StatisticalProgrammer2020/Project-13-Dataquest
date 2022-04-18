@@ -1,7 +1,6 @@
 ---
 title: "Winning Jeopardy"
 author: "Abe Ceasar Perez"
-date: "April 14, 2022"
 output: html_document
 ---
 
@@ -9,7 +8,7 @@ output: html_document
 
 This project aims the user to be guided with the right topics to study for the game Jeopardy. Specifically, we'll focus on looking into the various Jeopardy questions and answer to see which ones are more often to appear in certain categories.
 
-In addition to the objectives above, we'll be applying the following concepts in this project:
+For this project, the following concepts were applied in order to accomplish the objectives above:
 
 - Probability Distributions
 - Hypothesis Testing
